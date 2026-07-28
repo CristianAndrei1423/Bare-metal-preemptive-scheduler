@@ -2,3 +2,4 @@
 *.elf
 *.o
 .gdb_history
+_*

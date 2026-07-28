@@ -20,9 +20,6 @@ start_first_task:
 
 SVCHandler:
 
-    // put R0 (task.sp) into PSP
-    // msr psp, r0 - wasteful, because we already update psp
-
     // the address sp is still in r0
     // load the registers from our side
 
@@ -36,20 +33,6 @@ SVCHandler:
     // and is the new correct value of psp
 
     msr psp, r0
-
-    // change the CONTROL register
-
-    //mrs r0, control
-
-    // change the second bit
-
-    //orr r0, r0, #2
-
-    // put control back
-
-    //msr control, r0
-    
-    //isb
 
     // put the EXC_RETURN value in LR
 

@@ -5,7 +5,7 @@ uint32_t task1_stack[256];
 uint32_t task2_stack[256];
 
 typedef struct{
-    uint32_t* sp; // the pointer in the stack array
+    uint32_t* sp;
 }TCB;
 
 extern void start_first_task(uint32_t *sp);
@@ -15,9 +15,9 @@ uint32_t* initializeTask(uint32_t* stack, void (*func)(void)){
     uint32_t* sp = &stack[256];
 
     *(--sp) = (1 << 24); // xPSR, set thumb bit
-    *(--sp) = (uint32_t)func & ~1UL; // PC -> Check for thumb bit if hardfault; upd: it did
+    *(--sp) = (uint32_t)func & ~1UL; // took into account the thumb bit because of a hardfault
     *(--sp) = 0xdeadbeef; // LR 
-    // NOTE : When you want the process to terminate, make this point to cleanup func ^
+    // NOTE : When you want the process to terminate, make this point to a cleanup func ^
     *(--sp) = 12; // R12
     *(--sp) = 3; // R3
     *(--sp) = 2; // R2
@@ -71,8 +71,6 @@ void scheduler(){
 }
 
 int main(void){
-
-    // handler function
 
     systick_init();
 
