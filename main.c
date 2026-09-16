@@ -1,18 +1,31 @@
 #include <stdint.h>
 #include <string.h>
 
-uint32_t task1_stack[256];
-uint32_t task2_stack[256];
+#define MAX_TASKS 100
 
 typedef struct{
     uint32_t* sp;
 }TCB;
 
+uint32_t task_stack[MAX_TASKS][256];
+TCB tasks[MAX_TASKS];
+TCB *current_task;
+uint32_t task_index;
+uint32_t no_tasks;
+
+// uint32_t task1_stack[256];
+// uint32_t task2_stack[256];
+
+
+
 extern void start_first_task(uint32_t *sp);
 
-// initialize new process with a fake stack, returns sp
-uint32_t* initializeTask(uint32_t* stack, void (*func)(void)){
-    uint32_t* sp = &stack[256];
+// initialize new process with a fake stack, returns the id of the task
+// uint32_t* initializeTask(uint32_t* stack, void (*func)(void)){
+uint32_t initializeTask(void (*func)(void)){
+    
+    // initialize the stack
+    uint32_t* sp = &task_stack[no_tasks][256];
 
     *(--sp) = (1 << 24); // xPSR, set thumb bit
     *(--sp) = (uint32_t)func & ~1UL; // took into account the thumb bit because of a hardfault
@@ -33,11 +46,12 @@ uint32_t* initializeTask(uint32_t* stack, void (*func)(void)){
     *(--sp) = 5; // R5
     *(--sp) = 4; // R4
 
-    return sp;
+    tasks[no_tasks].sp = sp;
+    no_tasks ++;
+
+    return no_tasks - 1;
 }
 
-TCB tasks[2];
-TCB *current_task;
 
 volatile uint32_t counter1 = 0;
 volatile uint32_t counter2 = 0;
@@ -58,15 +72,18 @@ void systick_init(){
     *(volatile uint32_t*)0xE000E010 |= (1 << 2);
 
     // set the reload value
-    *(volatile uint32_t*)0xE000E014 = 0xFFFFFFFF;
+    *(volatile uint32_t*)0xE000E014 = 0xFFFFFF;
 
 }
 
 void scheduler(){
 
-    if(current_task == &tasks[0]){
-        current_task = &tasks[1];
-    } else current_task = &tasks[0];
+    current_task = &tasks[task_index++];
+    task_index %= no_tasks;
+
+    // if(current_task == &tasks[0]){
+    //     current_task = &tasks[1];
+    // } else current_task = &tasks[0];
 
 }
 
@@ -74,10 +91,10 @@ int main(void){
 
     systick_init();
 
-    tasks[0].sp = initializeTask(task1_stack, task1_func);
-    tasks[1].sp = initializeTask(task2_stack, task2_func);
-
-    current_task = &tasks[0];
+    // tasks[0].sp = initializeTask(task1_stack, task1_func);
+    // tasks[1].sp = initializeTask(task2_stack, task2_func);
+    initializeTask(task1_func);
+    initializeTask(task2_func);
     
     start_first_task(tasks[0].sp);
 
