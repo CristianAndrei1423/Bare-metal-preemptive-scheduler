@@ -1,24 +1,11 @@
-#include <stdint.h>
-#include <string.h>
-
-#define MAX_TASKS 100
-
-typedef struct{
-    uint32_t* sp;
-}TCB;
+#include "startup.h"
 
 uint32_t task_stack[MAX_TASKS][256];
 TCB tasks[MAX_TASKS];
 TCB *current_task;
 uint32_t task_index;
 uint32_t no_tasks;
-
-// uint32_t task1_stack[256];
-// uint32_t task2_stack[256];
-
-
-
-extern void start_first_task(uint32_t *sp);
+volatile uint32_t system_ticks;
 
 // initialize new process with a fake stack, returns the id of the task
 // uint32_t* initializeTask(uint32_t* stack, void (*func)(void)){
@@ -47,18 +34,35 @@ uint32_t initializeTask(void (*func)(void)){
     *(--sp) = 4; // R4
 
     tasks[no_tasks].sp = sp;
+    tasks[no_tasks].state = READY;
+    tasks[no_tasks].index = no_tasks;
     no_tasks ++;
 
     return no_tasks - 1;
 }
 
-
 volatile uint32_t counter1 = 0;
 volatile uint32_t counter2 = 0;
 
-void task1_func(void) {while(1){counter1 ++;}}
+void idle_func(void) {
+    while(1) {__asm__("wfi");};
+}
 
-void task2_func(void) {while(1) {counter2 ++;}}
+void task1_func(void) {
+    while(1){
+        counter1 ++;
+
+        if(counter1 % 10000 == 0) sleep_ms(2);
+    }
+}
+
+void task2_func(void) {
+    while(1) {
+        counter2 ++;
+        
+        if(counter2 % 10000 == 0) sleep_ms(2);
+    }
+}
 
 void systick_init(){
 
@@ -72,31 +76,59 @@ void systick_init(){
     *(volatile uint32_t*)0xE000E010 |= (1 << 2);
 
     // set the reload value
-    *(volatile uint32_t*)0xE000E014 = 0xFFFFFF;
+    *(volatile uint32_t*)0xE000E014 = 0x3E7F; // 16 000 - 1 for 1 ms
 
 }
 
 void scheduler(){
 
-    current_task = &tasks[task_index++];
-    task_index %= no_tasks;
+    if(current_task->state == RUNNING) current_task->state = READY;
 
-    // if(current_task == &tasks[0]){
-    //     current_task = &tasks[1];
-    // } else current_task = &tasks[0];
+    for(int i = 0; i < no_tasks; i++){
+        // lazily check the wake for wake_tick for the next task
+
+        task_index = (task_index + 1) % no_tasks;
+
+        if(tasks[task_index].state == BLOCKED && tasks[task_index].wake_tick <= system_ticks){
+            tasks[task_index].state = READY;
+        }
+
+        if(tasks[task_index].state == READY && task_index != 0){
+            tasks[task_index].state = RUNNING;
+            current_task = &tasks[task_index];
+            return;
+        }
+    }
+
+    // there is no task READY, put the idle_task
+    current_task = &tasks[0];
+    task_index = 0;
+    tasks[0].state = RUNNING;
+
+}
+
+void sleep_ms(uint32_t ms){
+
+    uint32_t ind = (*current_task).index;
+    tasks[ind].wake_tick = system_ticks + ms;
+    tasks[ind].state = BLOCKED;
+
+    *(volatile uint32_t*)0xE000ED04 = (1 << 28); // pend the switch
 
 }
 
 int main(void){
 
     systick_init();
-
-    // tasks[0].sp = initializeTask(task1_stack, task1_func);
-    // tasks[1].sp = initializeTask(task2_stack, task2_func);
+    initializeTask(idle_func);
     initializeTask(task1_func);
     initializeTask(task2_func);
     
-    start_first_task(tasks[0].sp);
+    current_task = &tasks[1];
+    current_task->state = RUNNING;
+    task_index = 1;
+
+    start_first_task(tasks[1].sp);
 
     return 0;
 }

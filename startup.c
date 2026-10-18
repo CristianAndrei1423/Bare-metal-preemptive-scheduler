@@ -1,13 +1,4 @@
-#include <stdint.h>
-
-extern uint32_t _estack; // top of stack, defined in the linker script
-extern uint32_t _etext;
-extern uint32_t _sdata;
-extern uint32_t _edata;
-extern uint32_t _sbss, _ebss;
-extern int main(void);
-extern void SVCHandler(void);
-extern void PendSV(void);
+#include "startup.h"
 
 void ResetHandler(void) {
 
@@ -29,13 +20,11 @@ void ResetHandler(void) {
     while(1);
 }
 
-// vector table lives at the very start of flash
-typedef void (*vector_func)(void);
-
 void Default_Handler(void) { while (1); }
 
 void SysTickHandler(void) {
     *(volatile uint32_t*)0xE000ED04 = (1 << 28);
+    system_ticks++;
 }
 
 __attribute__((section(".vector"), used))

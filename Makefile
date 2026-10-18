@@ -4,7 +4,7 @@ CFLAGS=-mcpu=cortex-m4 -mthumb -mfloat-abi=soft -nostdlib -ffreestanding -O0 -Wa
 
 all: nucleo.bin
 
-nucleo.elf: $(LINKER) $(SRCS)
+nucleo.elf: $(LINKER) $(SRCS) startup.h
 	arm-none-eabi-gcc $(CFLAGS) -T $(LINKER) $(SRCS) -o nucleo.elf
 
 nucleo.bin: nucleo.elf
